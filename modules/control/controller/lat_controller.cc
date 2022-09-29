@@ -482,14 +482,11 @@ Status LatController::ComputeControlCommand(
     matrix_q_updated_(2, 2) =
         matrix_q_(2, 2) * heading_err_interpolation_->Interpolate(
                               std::fabs(vehicle_state->linear_velocity()));
-    common::math::SolveLQRProblem((0910-question), (0910-question), (0910-question),
-                                  (0910-question), (0910-question), (0910-question),
-                                  (0910-question)&matrix_k_);
+    common::math::SolveLQRProblem(matrix_adc_,matrix_bdc_,matrix_q_,matrix_r_,lqr_eps_,lqr_max_iteration_,
+                                 &matrix_k_);
   } else {
-    common::math::SolveLQRProblem((0910-question), (0910-question), (0910-question),
-                                  (0910-question), (0910-question), (0910-question),
-                                  (0910-question));
-  }
+    common::math::SolveLQRProblem(matrix_adc_,matrix_bdc_,matrix_q_,matrix_r_,lqr_eps_,lqr_max_iteration_,
+                                 &matrix_k_);
 
   // feedback = - K * state
   // Convert vehicle steer angle from rad to degree and then to steer degree
@@ -743,7 +740,7 @@ void LatController::UpdateMatrixCompound() {
 
 double LatController::ComputeFeedForward(double ref_curvature) const {
   const double kv =
-      (0910-question) - (0910-question);
+      lr_ * mass_ / 2 / cf_ / wheelbase_ - lf_ * mass_ / 2 / cr_ / wheelbase_;
 
   // Calculate the feedforward term of the lateral controller; then change it
   // from rad to %
@@ -755,10 +752,8 @@ double LatController::ComputeFeedForward(double ref_curvature) const {
                                   steer_single_direction_max_degree_ * 100;
   } else {
     steer_angle_feedforwardterm =
-        ((0910-question) + (0910-question) -
-         (0910-question) *
-             ((0910-question) -
-              (0910-question)) *
+        (wheelbase_ * ref_curvature + kv * v * v * ref_curvature - matrix_k_(0,2) 
+         * (lr_ * ref_curvature - lf_ * mass_ * v * v * ref_curvature / 2 / cr_ / wheelbase_))* 
         180 / M_PI * steer_ratio_ / steer_single_direction_max_degree_ * 100;
   }
 
